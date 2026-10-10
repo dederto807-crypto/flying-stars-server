@@ -8,7 +8,7 @@ app.use(express.json({ limit: "1mb" }));
 const server = http.createServer(app);
 
 const wss = new WebSocket.Server({
-  server,
+  server: server,
   path: "/ws"
 });
 
