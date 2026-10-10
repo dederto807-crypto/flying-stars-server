@@ -8,11 +8,15 @@ app.use(express.json({ limit: "1mb" }));
 const server = http.createServer(app);
 
 const wss = new WebSocket.Server({
-  server: server,
+  server,
   path: "/ws"
 });
 
-let sharedState = null;
+let sharedState = {
+  products: [],
+  orders: [],
+  updatedAt: Date.now()
+};
 
 app.get("/", (req, res) => {
   res.send("Flying Stars multiplayer server is running!");
@@ -29,6 +33,16 @@ app.get("/state", (req, res) => {
   res.json({ state: sharedState });
 });
 
+function broadcast(data) {
+  const message = JSON.stringify(data);
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
 wss.on("connection", (socket) => {
   socket.send(JSON.stringify({
     type: "state",
@@ -39,31 +53,6 @@ wss.on("connection", (socket) => {
     try {
       const message = JSON.parse(raw.toString());
 
-      if (message.type === "state") {
-        sharedState = message.state;
-
-        const response = JSON.stringify({
-          type: "state",
-          state: sharedState
-        });
-
-        wss.clients.forEach((client) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(response);
-          }
-        });
-      }
-    } catch (error) {
-      socket.send(JSON.stringify({
-        type: "error",
-        message: "Invalid message"
-      }));
-    }
-  });
-});
-
-const PORT = process.env.PORT || 3000;
-
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+      // Принимаем только разрешённые типы сообщений.
+      if (message.type === "ping") {
+        socket 
