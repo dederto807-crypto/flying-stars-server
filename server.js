@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 const server = http.createServer(app);
+
 const wss = new WebSocket.Server({
   server,
   path: "/ws"
@@ -25,9 +26,7 @@ app.get("/health", (req, res) => {
 });
 
 app.get("/state", (req, res) => {
-  res.json({
-    state: sharedState
-  });
+  res.json({ state: sharedState });
 });
 
 wss.on("connection", (socket) => {
@@ -37,11 +36,34 @@ wss.on("connection", (socket) => {
   }));
 
   socket.on("message", (raw) => {
-    let message;
-
     try {
-      message = JSON.parse(raw.toString());
+      const message = JSON.parse(raw.toString());
+
+      if (message.type === "state") {
+        sharedState = message.state;
+
+        const response = JSON.stringify({
+          type: "state",
+          state: sharedState
+        });
+
+        wss.clients.forEach((client) => {
+          if (client.readyState === WebSocket.OPEN) {
+            client.send(response);
+          }
+        });
+      }
     } catch (error) {
       socket.send(JSON.stringify({
         type: "error",
-        message: "Invalid JSON"
+        message: "Invalid message"
+      }));
+    }
+  });
+});
+
+const PORT = process.env.PORT || 3000;
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server listening on port ${PORT}`);
+});
